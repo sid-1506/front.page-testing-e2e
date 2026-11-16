@@ -1,0 +1,9 @@
+{
+  "ttfbMs": [800, 1800], "fcpMs": [1800, 3000], "lcpMs": [2500, 4000],
+  "cls": [0.1, 0.25], "inpMs": [200, 500], "tbtMs": [200, 600],
+  "clickToFeedbackMs": [100, 300], "clickToUiReadyMs": [1000, 3000],
+  "pageTransitionMs": [1000, 3000],
+  "apiReadMs": [300, 1000], "apiWriteMs": [1000, 2000],
+  "jsTransferKb": [300, 600], "pageWeightKb": [1600, 3000],
+  "lighthousePerf": [90, 50]
+}

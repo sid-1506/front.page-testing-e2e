@@ -1,0 +1,86 @@
+name: perf-e2e
+
+# Manual by default: this suite talks to the production site, so it should run when someone asks for it.
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Measured runs per workflow per profile
+        default: '3'
+      location:
+        description: Label stored in the report as the test location
+        default: 'GitHub Actions ubuntu-latest (hosted runner, usually a US Azure region)'
+  # schedule:
+  #   - cron: '30 2 * * 1'   # Mondays 08:00 IST
+
+concurrency:
+  group: perf-e2e
+  cancel-in-progress: false
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    # This file assumes perf-e2e/ is the repository root. If the suite lives in a subfolder, move this file to
+    # the repository's own .github/workflows/ and add `defaults.run.working-directory` plus path prefixes.
+    env:
+      CI: 'true'
+      BASE_URL: https://front.page
+      RUNS: ${{ inputs.runs || '3' }}
+      # A hosted runner is far from the site's Indian users: TTFB and API round-trips will read higher
+      # than a run from India. The label makes that visible in the report; never compare across locations.
+      TEST_LOCATION: ${{ inputs.location || 'GitHub Actions ubuntu-latest (hosted runner, usually a US Azure region)' }}
+      TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+      REDACT_TERMS: ${{ secrets.REDACT_TERMS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      # front.page login is phone number + OTP behind reCAPTCHA and cannot be automated.
+      # Log in once locally (`npm run auth:login`), then store the session as a secret:
+      #   base64 < playwright/.auth/user.json | gh secret set STORAGE_STATE_B64
+      - name: Restore the signed-in session
+        env:
+          STORAGE_STATE_B64: ${{ secrets.STORAGE_STATE_B64 }}
+        run: |
+          if [ -z "$STORAGE_STATE_B64" ]; then
+            echo "::error::STORAGE_STATE_B64 secret is missing. Login needs an OTP, so a saved session is required."
+            exit 1
+          fi
+          mkdir -p playwright/.auth
+          echo "$STORAGE_STATE_B64" | base64 -d > playwright/.auth/user.json
+          chmod 600 playwright/.auth/user.json
+
+      - name: Harness self-test (local page, no site traffic)
+        run: npm run selftest
+
+      # test:perf -> test:lh -> report. Test failures are findings and do not stop the later stages;
+      # the job still ends red if a test failed or the redaction check found a secret.
+      - name: Run the suite and build the report
+        run: npm run all
+
+      # Only reports/ and metrics.json are uploaded: both pass the redaction gate.
+      # Playwright traces (playwright-report/, test-results/) are raw recordings with cookies: never uploaded.
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-report-${{ github.run_number }}
+          path: |
+            reports/
+            results/metrics.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Remove the session file
+        if: always()
+        run: rm -rf playwright/.auth

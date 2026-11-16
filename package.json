@@ -1,0 +1,34 @@
+{
+  "name": "perf-e2e",
+  "version": "1.0.0",
+  "description": "Playwright performance + functional E2E suite for FrontPage with an HTML report",
+  "scripts": {
+    "auth:login": "tsx scripts/login-helper.ts",
+    "selftest": "PW_REPORT_NAME=selftest playwright test --project=selftest --project=selftest-mobile",
+    "clean": "tsx scripts/clean.ts all",
+    "test:perf": "tsx scripts/clean.ts perf && PW_REPORT_NAME=perf playwright test --project=desktop --project=mobile-slow4g",
+    "test:lh": "tsx scripts/clean.ts lh && PW_REPORT_NAME=lighthouse playwright test --project=lighthouse",
+    "report": "tsx scripts/build-report.ts",
+    "all": "node scripts/run-all.mjs",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
+    "dotenv": "^18.0.10",
+    "lighthouse": "^13.6.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "web-vitals": "^6.2.3",
+    "puppeteer-core": "^25.17.0"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}
